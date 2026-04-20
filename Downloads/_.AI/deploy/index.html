@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html class="dark" lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ともしび手帳.AI — 故人との、新しいかたちのつながり</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Public+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@300,0..1&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+:root { --amber: #b87333; --amber-light: #d4944a; --cream: #f5f0e8; --cream-dark: #ede6da; --sepia: #3d2b1a; --sepia-mid: #7a6048; --sepia-light: #a89070; }
+.ms { font-family: 'Material Symbols Outlined'; font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; font-size: 20px; line-height: 1; display:inline-block; }
+.ms.fill { font-variation-settings: 'FILL' 1, 'wght' 300; }
+@keyframes breathe { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.08);opacity:1} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideInR { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
+@keyframes slideInL { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
+@keyframes typingDot { 0%,60%,100%{transform:translateY(0);opacity:.3} 30%{transform:translateY(-4px);opacity:.9} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(184,115,51,.4)} 50%{box-shadow:0 0 0 8px rgba(184,115,51,0)} }
+@keyframes memIn { from{opacity:0;transform:translateY(8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+.flame { animation: breathe 4s ease-in-out infinite; }
+.float { animation: float 6s ease-in-out infinite; }
+.dot1{animation:typingDot 1.2s ease infinite}
+.dot2{animation:typingDot 1.2s ease .2s infinite}
+.dot3{animation:typingDot 1.2s ease .4s infinite}
+.msg-ai { animation: slideInL .35s ease both; }
+.msg-user { animation: slideInR .35s ease both; }
+.mem-card { animation: memIn .4s ease both; }
+.grad-text { background: linear-gradient(135deg,#ffc174 0%,#ffddb8 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.btn-primary { background:linear-gradient(135deg,#f59e0b,#ffc174); color:#2a1700; font-weight:600; letter-spacing:.03em; transition:all .3s ease; }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(245,158,11,.4); }
+.reveal { opacity:0; transform:translateY(28px); transition:opacity .75s ease, transform .75s ease; }
+.reveal.visible { opacity:1; transform:translateY(0); }
+.step-line::after { content:''; position:absolute; left:50%; top:100%; transform:translateX(-50%); width:1px; height:60px; background:linear-gradient(to bottom, rgba(255,193,116,.3), transparent); }
+/* Stars */
+@keyframes twinkle { 0%,100%{opacity:.15} 50%{opacity:.5} }
+.star { position:absolute; border-radius:50%; background:white; }
+</style>
+</head>
+<body style="background:#0b1326;color:#dae2fd;font-family:'Public Sans',sans-serif;overflow-x:hidden;margin:0">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ── helpers ── */
+function useReveal(delay=0) {
+  const ref = useRef(null);
+  useEffect(()=>{
+    const el=ref.current; if(!el) return;
+    const t = setTimeout(()=>{
+      const obs=new IntersectionObserver(([e])=>{ if(e.isIntersecting) el.classList.add('visible'); },{threshold:.12});
+      obs.observe(el);
+      return ()=>obs.disconnect();
+    }, delay);
+    return ()=>clearTimeout(t);
+  },[delay]);
+  return ref;
+}
+
+/* ── App-style phone screens (light cream) ── */
+
+// Onboarding screen — step 1: enter names
+function OnboardingScreen() {
+  const [name, setName] = useState('');
+  const [other, setOther] = useState('');
+  const [phase, setPhase] = useState(0);
+  useEffect(()=>{
+    const names = ['山田 太郎',''];
+    const others = ['山田 花子',''];
+    let i=0;
+    const type = (str, setter, cb) => {
+      let j=0;
+      const iv = setInterval(()=>{
+        setter(str.slice(0,++j));
+        if(j>=str.length){clearInterval(iv);cb&&setTimeout(cb,400);}
+      },60);
+      return iv;
+    };
+    const t = setTimeout(()=>{
+      type('山田 太郎', setName, ()=>type('山田 花子', setOther, ()=>setPhase(1)));
+    },500);
+    return ()=>clearTimeout(t);
+  },[]);
+  const S = { bg:'#f5f0e8', card:'#faf7f2', border:'rgba(160,130,90,.15)', text:'#3d2b1a', mid:'#7a6048', light:'#a89070', accent:'#b87333' };
+  return (
+    <div style={{height:'100%',background:S.bg,display:'flex',flexDirection:'column',padding:'12px 14px',gap:12}}>
+      {/* Header */}
+      <div style={{textAlign:'center',paddingTop:4}}>
+        <span style={{fontSize:9,letterSpacing:'.12em',color:S.light,fontFamily:'Public Sans'}}>ともしび手帳 .ai</span>
+      </div>
+      {/* Progress */}
+      <div style={{display:'flex',gap:4,marginBottom:4}}>
+        {[1,2,3].map(n=>(
+          <div key={n} style={{flex:1,height:2,borderRadius:1,background:n===1?S.accent:'rgba(160,130,90,.2)'}}/>
+        ))}
+      </div>
+      <div style={{fontSize:9,letterSpacing:'.1em',color:S.light}}>STEP 01 / 03</div>
+      <h3 style={{fontFamily:'Noto Serif',fontSize:16,color:S.text,margin:0,lineHeight:1.4}}>あなたについて</h3>
+      <p style={{fontSize:10,color:S.mid,margin:0}}>呼ばれたいお名前を教えてください</p>
+      <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:4}}>
+        <div>
+          <label style={{fontSize:9,color:S.light,display:'block',marginBottom:4}}>あなたのお名前</label>
+          <div style={{borderBottom:`1px solid ${S.accent}`,padding:'6px 0',fontFamily:'Noto Serif',fontSize:13,color:S.text,minHeight:24}}>{name}{!name&&<span style={{display:'inline-block',width:1,height:12,background:S.accent,animation:'breathe .8s ease-in-out infinite',verticalAlign:'middle'}}/>}</div>
+        </div>
+        <div>
+          <label style={{fontSize:9,color:S.light,display:'block',marginBottom:4}}>旅立った方のお名前</label>
+          <div style={{borderBottom:`1px solid rgba(160,130,90,.3)`,padding:'6px 0',fontFamily:'Noto Serif',fontSize:13,color:S.text,minHeight:24}}>{other}{name&&!other&&<span style={{display:'inline-block',width:1,height:12,background:S.accent,animation:'breathe .8s ease-in-out infinite',verticalAlign:'middle'}}/>}</div>
+        </div>
+      </div>
+      <div style={{marginTop:'auto',display:'flex',justifyContent:'flex-end'}}>
+        {phase>=1&&(
+          <div className="msg-ai" style={{padding:'8px 16px',border:`1px solid ${S.accent}`,borderRadius:2,fontSize:11,color:S.accent,fontFamily:'Public Sans',letterSpacing:'.04em'}}>
+            次へ →
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Chat screen — warm cream, actual-app style
+function ChatScreen() {
+  const S = { bg:'#f5f0e8', card:'#faf7f2', border:'rgba(160,130,90,.15)', text:'#3d2b1a', mid:'#7a6048', light:'#a89070', accent:'#b87333', accentBg:'rgba(184,115,51,.07)' };
+  const [phase, setPhase] = useState(0);
+  useEffect(()=>{
+    const timings = [600, 1400, 2400, 3200];
+    const timers = timings.map((ms,i)=>setTimeout(()=>setPhase(i+1), ms));
+    return ()=>timers.forEach(clearTimeout);
+  },[]);
+  return (
+    <div style={{height:'100%',background:S.bg,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      {/* Stage header */}
+      <div style={{padding:'10px 14px',borderBottom:`1px solid ${S.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <div style={{fontSize:8,letterSpacing:'.1em',color:S.light,display:'flex',alignItems:'center',gap:4}}>
+            <span style={{fontSize:10}}>◇</span> 失われた未来を語る
+          </div>
+          <div style={{fontSize:9,color:S.light,opacity:.6,marginTop:1}}>「そのはずだった」時間について</div>
+        </div>
+        <span style={{fontSize:9,padding:'3px 8px',border:`1px solid ${S.border}`,borderRadius:2,color:S.light}}>記録して終わる</span>
+      </div>
+      {/* Messages */}
+      <div style={{flex:1,overflowY:'hidden',display:'flex',flexDirection:'column',gap:10,padding:'12px 14px'}}>
+        {phase>=1&&(
+          <div className="msg-ai" style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:'2px 8px 8px 8px',padding:'10px 12px'}}>
+            <div style={{fontSize:8,color:S.light,marginBottom:4,letterSpacing:'.06em'}}>ともしび手帳 .ai</div>
+            <p style={{margin:0,fontFamily:'Noto Serif',fontSize:11,lineHeight:1.75,color:S.text}}>花子さんとは、どのくらいの時間を一緒に過ごされていたんですか？</p>
+          </div>
+        )}
+        {phase>=2&&(
+          <div className="msg-user" style={{alignSelf:'flex-end',background:S.accentBg,border:`1px solid rgba(184,115,51,.15)`,borderRadius:'8px 2px 8px 8px',padding:'10px 12px',maxWidth:'80%'}}>
+            <p style={{margin:0,fontFamily:'Noto Serif',fontSize:11,lineHeight:1.75,color:S.text}}>30年ぐらいずっと夫婦でいたかな。</p>
+          </div>
+        )}
+        {phase===3&&(
+          <div className="msg-ai" style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:'2px 8px 8px 8px',padding:'12px'}}>
+            <div style={{display:'flex',gap:5,alignItems:'center'}}>
+              <span className="dot1" style={{width:5,height:5,borderRadius:'50%',background:S.light,display:'inline-block'}}/>
+              <span className="dot2" style={{width:5,height:5,borderRadius:'50%',background:S.light,display:'inline-block'}}/>
+              <span className="dot3" style={{width:5,height:5,borderRadius:'50%',background:S.light,display:'inline-block'}}/>
+            </div>
+          </div>
+        )}
+        {phase>=4&&(
+          <div className="msg-ai" style={{background:S.card,border:`1px solid ${S.border}`,borderRadius:'2px 8px 8px 8px',padding:'10px 12px'}}>
+            <div style={{fontSize:8,color:S.light,marginBottom:4,letterSpacing:'.06em'}}>ともしび手帳 .ai</div>
+            <p style={{margin:0,fontFamily:'Noto Serif',fontSize:11,lineHeight:1.75,color:S.text}}>30年。本当に長い時間を一緒に歩んでこられたんですね。花子さんがいたら、今頃どうしていたと思いますか？</p>
+          </div>
+        )}
+      </div>
+      {/* Input */}
+      <div style={{padding:'8px 12px',borderTop:`1px solid ${S.border}`}}>
+        <div style={{background:'white',border:`1px solid ${S.border}`,borderRadius:4,padding:'8px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span style={{fontSize:10,color:S.light,fontFamily:'Noto Serif'}}>想いを書く…</span>
+          <span className="ms" style={{color:S.accent,fontSize:16}}>send</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Memorial screen — memories accumulating
+function MemorialScreen() {
+  const S = { bg:'#f5f0e8', card:'#faf7f2', border:'rgba(160,130,90,.15)', text:'#3d2b1a', mid:'#7a6048', light:'#a89070', accent:'#b87333', accentBg:'rgba(184,115,51,.06)' };
+  const [shown, setShown] = useState(0);
+  const cats = [
+    { icon:'◇', label:'どんな人でしたか', entry:null },
+    { icon:'◆', label:'共に過ごした時間', entry:null },
+    { icon:'✦', label:'習慣・くせ・声', entry:null },
+    { icon:'✧', label:'言えなかった言葉', entry:null },
+    { icon:'○', label:'あの人がいたら', entry:'故人とまた旅行に行きたかった。以前行った場所への再訪や新しい目的地への旅を望んでいた。', date:'2026/4/21 · 失われた未来を語る' },
+  ];
+  useEffect(()=>{
+    const t = setInterval(()=>setShown(s=>Math.min(s+1,cats.length)),350);
+    return ()=>clearInterval(t);
+  },[]);
+  return (
+    <div style={{height:'100%',background:S.bg,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'14px 14px 10px',textAlign:'center',borderBottom:`1px solid ${S.border}`}}>
+        <div style={{fontSize:8,letterSpacing:'.15em',color:S.light,marginBottom:4}}>IN MEMORY OF</div>
+        <div style={{fontFamily:'Noto Serif',fontSize:18,color:S.text,letterSpacing:'.04em'}}>山田 花子</div>
+        <div style={{fontSize:9,color:S.light,marginTop:3}}>配偶者・パートナー · 半年以内に旅立たれた</div>
+        <div style={{width:20,height:1,background:S.accent,margin:'8px auto 0',opacity:.4}}/>
+      </div>
+      <div style={{flex:1,overflowY:'hidden',padding:'10px 12px',display:'flex',flexDirection:'column',gap:6}}>
+        {cats.slice(0,shown).map((c,i)=>(
+          <div key={i} className="mem-card" style={{
+            background: c.entry ? 'white' : S.card,
+            border:`1px solid ${c.entry ? 'rgba(184,115,51,.2)' : S.border}`,
+            borderRadius:4,padding: c.entry ? '10px 12px' : '8px 12px',
+            display:'flex',flexDirection:'column',gap: c.entry?6:0
+          }}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <span style={{fontSize:10,color: c.entry ? S.accent : S.light,fontFamily:'Noto Serif',display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:9,opacity:.7}}>{c.icon}</span> {c.label}
+              </span>
+              {!c.entry&&<span style={{fontSize:9,color:S.light,opacity:.5}}>タップして追加</span>}
+              {c.entry&&<span style={{fontSize:14,color:S.light}}>+</span>}
+            </div>
+            {c.entry&&(
+              <p style={{margin:0,fontFamily:'Noto Serif',fontSize:10,lineHeight:1.75,color:S.text}}>{c.entry}</p>
+            )}
+            {c.date&&<span style={{fontSize:8,color:S.light,opacity:.6}}>{c.date}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Phone Mockup ── */
+function PhoneMockup({ screen, scale=1 }) {
+  const ScreenMap = { onboarding: OnboardingScreen, chat: ChatScreen, memorial: MemorialScreen };
+  const [cur, setCur] = useState(screen);
+  const [fade, setFade] = useState(false);
+  useEffect(()=>{
+    if(screen===cur) return;
+    setFade(true);
+    const t=setTimeout(()=>{setCur(screen);setFade(false);},280);
+    return()=>clearTimeout(t);
+  },[screen]);
+  const ScreenComp = ScreenMap[cur] || ScreenMap.onboarding;
+  const w=220, h=440;
+  return (
+    <div style={{
+      width:w, height:h, background:'#f5f0e8', borderRadius:32,
+      border:'1.5px solid rgba(255,193,116,.18)',
+      boxShadow:'0 0 60px rgba(255,193,116,.07), 0 40px 100px rgba(0,0,0,.55)',
+      position:'relative', overflow:'hidden', flexShrink:0,
+    }}>
+      {/* notch */}
+      <div style={{position:'absolute',top:0,left:'50%',transform:'translateX(-50%)',width:56,height:18,background:'#0b1326',borderRadius:'0 0 10px 10px',zIndex:20}}/>
+      {/* status bar */}
+      <div style={{position:'absolute',top:0,left:0,right:0,height:22,background:'#f5f0e8',zIndex:15,display:'flex',alignItems:'flex-end',justifyContent:'space-between',padding:'0 16px 3px'}}>
+        <span style={{fontSize:8,color:'#7a6048',fontFamily:'Public Sans'}}>22:14</span>
+        <div style={{display:'flex',gap:3}}>
+          <span className="ms" style={{fontSize:10,color:'#7a6048'}}>wifi</span>
+          <span className="ms" style={{fontSize:10,color:'#7a6048'}}>battery_full</span>
+        </div>
+      </div>
+      {/* screen */}
+      <div style={{position:'absolute',top:22,left:0,right:0,bottom:0,opacity:fade?0:1,transition:'opacity .28s ease',overflow:'hidden'}}>
+        <ScreenComp key={cur}/>
+      </div>
+      {/* home bar */}
+      <div style={{position:'absolute',bottom:6,left:'50%',transform:'translateX(-50%)',width:50,height:3,borderRadius:2,background:'rgba(60,43,26,.2)',zIndex:20}}/>
+    </div>
+  );
+}
+
+/* ── Stars ── */
+function Stars({count=60}) {
+  const stars = useRef([...Array(count)].map(()=>({
+    x:Math.random()*100,y:Math.random()*100,
+    s:Math.random()*.8+.2,o:Math.random()*.35+.08,
+    d:Math.random()*4+2
+  }))).current;
+  return (
+    <div style={{position:'absolute',inset:0,overflow:'hidden',pointerEvents:'none'}}>
+      {stars.map((s,i)=>(
+        <div key={i} className="star" style={{
+          left:`${s.x}%`,top:`${s.y}%`,
+          width:`${s.s}px`,height:`${s.s}px`,
+          opacity:s.o,animation:`twinkle ${s.d}s ease-in-out ${s.d*.3}s infinite`
+        }}/>
+      ))}
+    </div>
+  );
+}
+
+/* ── Nav ── */
+function Nav() {
+  const [scrolled,setScrolled]=useState(false);
+  useEffect(()=>{
+    const fn=()=>setScrolled(window.scrollY>40);
+    window.addEventListener('scroll',fn);
+    return()=>window.removeEventListener('scroll',fn);
+  },[]);
+  return (
+    <nav style={{
+      position:'fixed',top:0,left:0,right:0,zIndex:50,
+      background:scrolled?'rgba(11,19,38,.92)':'transparent',
+      backdropFilter:scrolled?'blur(16px)':'none',
+      borderBottom:scrolled?'1px solid rgba(255,193,116,.06)':'none',
+      transition:'all .4s ease',padding:'0 48px',height:64,
+      display:'flex',alignItems:'center',justifyContent:'space-between',
+    }}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span className="ms fill flame" style={{color:'#ffc174',fontSize:20}}>candle</span>
+        <span style={{fontFamily:'Noto Serif',fontSize:16,color:'#ffc174',letterSpacing:'.02em'}}>ともしび手帳 <span style={{opacity:.55}}>.ai</span></span>
+      </div>
+      <div style={{display:'flex',gap:28,alignItems:'center'}}>
+        {['使い方','ステージ','なぜ作ったか'].map(l=>(
+          <a key={l} href="#" style={{color:'rgba(218,226,253,.45)',fontSize:13,fontFamily:'Public Sans',textDecoration:'none',letterSpacing:'.04em',transition:'color .3s'}}
+            onMouseEnter={e=>e.target.style.color='#ffc174'} onMouseLeave={e=>e.target.style.color='rgba(218,226,253,.45)'}>{l}</a>
+        ))}
+        <a href="#try" className="btn-primary" style={{padding:'9px 22px',borderRadius:999,fontSize:13,textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
+          試してみる <span className="ms" style={{fontSize:16,color:'#2a1700'}}>arrow_forward</span>
+        </a>
+      </div>
+    </nav>
+  );
+}
+
+/* ── Hero ── */
+const HERO_SCREENS = ['onboarding','chat','memorial'];
+const HERO_LABELS = ['登録する','チャットする','思い出が積まれる'];
+function Hero() {
+  const [activeIdx,setActiveIdx]=useState(0);
+  useEffect(()=>{
+    const t=setInterval(()=>setActiveIdx(i=>(i+1)%HERO_SCREENS.length),5200);
+    return()=>clearInterval(t);
+  },[]);
+  return (
+    <section style={{minHeight:'100vh',display:'flex',alignItems:'center',position:'relative',padding:'80px 48px 60px',overflow:'hidden'}}>
+      <Stars count={80}/>
+      <div style={{position:'absolute',top:'15%',left:'25%',width:700,height:700,borderRadius:'50%',background:'radial-gradient(circle,rgba(245,158,11,.055) 0%,transparent 65%)',pointerEvents:'none'}}/>
+      <div style={{maxWidth:1200,margin:'0 auto',width:'100%',display:'grid',gridTemplateColumns:'1fr auto',gap:80,alignItems:'center'}}>
+        {/* Text */}
+        <div>
+          <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'6px 14px',borderRadius:999,background:'rgba(255,193,116,.06)',border:'1px solid rgba(255,193,116,.12)',marginBottom:28,animation:'fadeUp .7s ease both'}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'#ffc174',display:'inline-block',boxShadow:'0 0 8px #ffc174',animation:'breathe 3s ease-in-out infinite'}}/>
+            <span style={{fontSize:12,color:'rgba(255,193,116,.75)',letterSpacing:'.1em',fontFamily:'Public Sans'}}>グリーフケア AI プラットフォーム</span>
+          </div>
+          <h1 style={{fontFamily:'Noto Serif',fontSize:'clamp(30px,3.8vw,54px)',lineHeight:1.5,marginBottom:20,animation:'fadeUp .7s ease .1s both'}}>
+            <span className="grad-text">話すたびに、</span><br/>
+            <span style={{color:'#dae2fd'}}>その人の記憶が</span><br/>
+            <span style={{color:'rgba(218,226,253,.65)'}}>かたちになっていく。</span>
+          </h1>
+          <p style={{fontSize:16,color:'rgba(216,195,173,.65)',lineHeight:1.95,marginBottom:36,fontFamily:'Noto Serif',fontWeight:300,maxWidth:460,animation:'fadeUp .7s ease .2s both'}}>
+            大切な人を失ったあなたへ。AIとの静かな対話を通じて、<br/>故人との思い出を言葉にし、記録し、積み重ねていく場所。
+          </p>
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',animation:'fadeUp .7s ease .3s both'}}>
+            <a href="#try" className="btn-primary" style={{padding:'14px 28px',borderRadius:999,fontSize:15,textDecoration:'none',display:'flex',alignItems:'center',gap:8}}>
+              <span className="ms fill" style={{fontSize:18,color:'#2a1700'}}>candle</span>
+              無料で始める
+            </a>
+            <a href="#how" style={{padding:'14px 22px',borderRadius:999,fontSize:15,color:'rgba(218,226,253,.5)',textDecoration:'none',border:'1px solid rgba(255,255,255,.07)',display:'flex',alignItems:'center',gap:6,transition:'all .3s'}}
+              onMouseEnter={e=>{e.currentTarget.style.color='#ffc174';e.currentTarget.style.borderColor='rgba(255,193,116,.2)'}}
+              onMouseLeave={e=>{e.currentTarget.style.color='rgba(218,226,253,.5)';e.currentTarget.style.borderColor='rgba(255,255,255,.07)'}}>
+              使い方を見る <span className="ms" style={{fontSize:16}}>arrow_downward</span>
+            </a>
+          </div>
+          {/* Screen dots */}
+          <div style={{marginTop:36,display:'flex',gap:8,animation:'fadeUp .7s ease .4s both'}}>
+            {HERO_LABELS.map((l,i)=>(
+              <button key={l} onClick={()=>setActiveIdx(i)} style={{
+                padding:'5px 14px',borderRadius:999,fontSize:11,letterSpacing:'.05em',border:'none',cursor:'pointer',transition:'all .3s',fontFamily:'Public Sans',
+                background:activeIdx===i?'rgba(255,193,116,.1)':'transparent',
+                outline:`1px solid ${activeIdx===i?'rgba(255,193,116,.3)':'rgba(255,255,255,.06)'}`,
+                color:activeIdx===i?'#ffc174':'rgba(216,195,173,.35)',
+              }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        {/* Phone */}
+        <div className="float">
+          <PhoneMockup screen={HERO_SCREENS[activeIdx]}/>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── How It Works ── */
+const STEPS = [
+  {
+    n:'01', screen:'onboarding',
+    label:'まず、その人のことを教えてください',
+    title:'名前を入力するところから始まる',
+    body:'あなたの名前と、旅立った方の名前。たった二つの名前を入力するだけで、その人のための場所ができます。関係性や、喪失からの時間、いちばん恋しいことも教えてください。',
+    detail:'登録不要・完全無料',
+  },
+  {
+    n:'02', screen:'chat',
+    label:'AIと、ゆっくり話す',
+    title:'分析しない、アドバイスしない——ただ、聴く',
+    body:'5つのグリーフケアステージを通じて、故人との関係性を言葉にしていきます。一度に聞くことは一つだけ。あなたのペースで、あなたが話したいことを話せる場所。',
+    detail:'5段階のグリーフケアステージ',
+  },
+  {
+    n:'03', screen:'memorial',
+    label:'話すたびに、記憶が積み重なっていく',
+    title:'対話の中から、その人らしさが浮かび上がる',
+    body:'会話からAIが自動で記憶のかけらを検出・保存します。声、習慣、言えなかった言葉、あの人がいたら……小さなかけらが集まって、その人の輪郭になっていきます。',
+    detail:'5カテゴリ・自動抽出',
+  },
+];
+
+function HowItWorks() {
+  const [activeStep, setActiveStep] = useState(0);
+  const ref = useReveal();
+
+  return (
+    <section id="how" style={{padding:'130px 48px',background:'#0b1326',position:'relative'}}>
+      <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 80% 50% at 50% 50%,rgba(245,158,11,.04) 0%,transparent 70%)',pointerEvents:'none'}}/>
+      <div ref={ref} className="reveal" style={{maxWidth:1100,margin:'0 auto'}}>
+        <div style={{textAlign:'center',marginBottom:72}}>
+          <p style={{fontSize:11,letterSpacing:'.15em',color:'rgba(255,193,116,.45)',marginBottom:12,fontFamily:'Public Sans'}}>HOW IT WORKS</p>
+          <h2 style={{fontFamily:'Noto Serif',fontSize:'clamp(24px,3vw,38px)',lineHeight:1.45,margin:0}}>
+            <span className="grad-text">入力して、話して、</span><br/>
+            <span style={{color:'rgba(218,226,253,.8)'}}>記憶が積み重なっていく。</span>
+          </h2>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:80,alignItems:'center'}}>
+          {/* Left: Steps */}
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {STEPS.map((step,i)=>(
+              <button key={step.n} onClick={()=>setActiveStep(i)} style={{
+                textAlign:'left',background:'transparent',border:'none',cursor:'pointer',
+                padding:'20px 22px',borderRadius:10,width:'100%',
+                background: activeStep===i?'rgba(255,193,116,.055)':'transparent',
+                outline: activeStep===i?'1px solid rgba(255,193,116,.18)':'1px solid transparent',
+                transition:'all .35s ease',
+              }}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:16}}>
+                  <span style={{
+                    fontFamily:'Noto Serif',fontSize:28,lineHeight:1,
+                    color: activeStep===i?'rgba(255,193,116,.35)':'rgba(255,255,255,.07)',
+                    transition:'color .35s',flexShrink:0,marginTop:2,
+                  }}>{step.n}</span>
+                  <div>
+                    <p style={{margin:'0 0 4px',fontSize:10,letterSpacing:'.1em',color:activeStep===i?'rgba(255,193,116,.6)':'rgba(216,195,173,.3)',fontFamily:'Public Sans',transition:'color .35s'}}>{step.label}</p>
+                    <h3 style={{margin:'0 0 8px',fontFamily:'Noto Serif',fontSize:16,color:activeStep===i?'#dae2fd':'rgba(218,226,253,.35)',lineHeight:1.45,transition:'color .35s'}}>{step.title}</h3>
+                    {activeStep===i&&(
+                      <div style={{animation:'fadeUp .4s ease both'}}>
+                        <p style={{margin:'0 0 12px',fontSize:13,color:'rgba(216,195,173,.6)',lineHeight:1.85}}>{step.body}</p>
+                        <span style={{fontSize:11,padding:'3px 10px',borderRadius:999,background:'rgba(255,193,116,.07)',border:'1px solid rgba(255,193,116,.15)',color:'rgba(255,193,116,.6)'}}>{step.detail}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Right: Phone */}
+          <div style={{display:'flex',justifyContent:'center',alignItems:'center',position:'relative'}}>
+            {/* Glow */}
+            <div style={{position:'absolute',inset:-40,background:'radial-gradient(circle,rgba(245,158,11,.08) 0%,transparent 65%)',pointerEvents:'none'}}/>
+            <PhoneMockup screen={STEPS[activeStep].screen}/>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Memorial Preview ── */
+function MemorialPreview() {
+  const ref = useReveal();
+  const memories = [
+    { icon:'◆', cat:'共に過ごした時間', text:'30年、ずっと一緒にいた。朝も夜も、旅行も病院も。', from:'対話から自動抽出' },
+    { icon:'✦', cat:'習慣・くせ・声', text:'毎朝6時に起きて、台所でひとりコーヒーを飲んでいた。', from:'対話から自動抽出' },
+    { icon:'○', cat:'あの人がいたら', text:'また旅行に行きたかった。いつも「来年どこか行こう」と言っていた。', from:'対話から自動抽出' },
+  ];
+  return (
+    <section style={{padding:'130px 48px',background:'#080f1f',position:'relative',overflow:'hidden'}}>
+      <div style={{position:'absolute',right:-100,top:'50%',transform:'translateY(-50%)',width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle,rgba(255,193,116,.04) 0%,transparent 70%)',pointerEvents:'none'}}/>
+      <div ref={ref} className="reveal" style={{maxWidth:1100,margin:'0 auto',display:'grid',gridTemplateColumns:'1fr 1fr',gap:100,alignItems:'center'}}>
+        {/* Left: Memory cards */}
+        <div>
+          <p style={{fontSize:11,letterSpacing:'.15em',color:'rgba(255,193,116,.45)',marginBottom:12,fontFamily:'Public Sans'}}>MEMORIAL</p>
+          <h2 style={{fontFamily:'Noto Serif',fontSize:'clamp(22px,2.8vw,36px)',lineHeight:1.5,marginBottom:16}}>
+            <span style={{color:'#dae2fd'}}>話すたびに、</span><br/>
+            <span className="grad-text">その人らしさが積まれる。</span>
+          </h2>
+          <p style={{fontSize:14,color:'rgba(216,195,173,.55)',lineHeight:1.9,marginBottom:40,maxWidth:400}}>AIとの対話から、故人に関する記憶のかけらを自動で検出・保存。5つのカテゴリに整理されて、いつでも振り返れます。</p>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {memories.map((m,i)=>(
+              <div key={i} style={{
+                background:'rgba(255,255,255,.025)',border:'1px solid rgba(255,193,116,.1)',
+                borderLeft:'2px solid rgba(255,193,116,.35)',
+                borderRadius:'0 6px 6px 0',padding:'14px 16px',
+                animation:`fadeUp .6s ease ${i*.15}s both`
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                  <span style={{fontSize:10,color:'rgba(255,193,116,.6)'}}>{m.icon}</span>
+                  <span style={{fontSize:10,letterSpacing:'.08em',color:'rgba(255,193,116,.5)',fontFamily:'Public Sans'}}>{m.cat}</span>
+                  <span style={{marginLeft:'auto',fontSize:9,color:'rgba(255,193,116,.3)',border:'1px solid rgba(255,193,116,.15)',borderRadius:999,padding:'2px 8px'}}>✦ {m.from}</span>
+                </div>
+                <p style={{margin:0,fontFamily:'Noto Serif',fontSize:13,color:'rgba(218,226,253,.7)',lineHeight:1.75}}>{m.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Right: Text */}
+        <div>
+          <div style={{background:'rgba(255,193,116,.04)',border:'1px solid rgba(255,193,116,.1)',borderRadius:12,padding:'40px 36px'}}>
+            <span className="ms fill" style={{fontSize:32,color:'rgba(255,193,116,.3)',display:'block',marginBottom:24,animation:'breathe 4s ease-in-out infinite'}}>candle</span>
+            <h3 style={{fontFamily:'Noto Serif',fontSize:20,color:'rgba(218,226,253,.85)',lineHeight:1.6,marginBottom:16}}>記録することが、<br/>「その人を生かし続ける」<br/>倫理的な行為になる。</h3>
+            <p style={{fontSize:13,color:'rgba(216,195,173,.45)',lineHeight:1.9,margin:0}}>日記に書く、記憶のかけらを保存するという行為そのものが、故人の存在をこの世界に在らせ続けることになります。</p>
+            <div style={{marginTop:24,width:32,height:1,background:'rgba(255,193,116,.2)'}}/>
+            <p style={{marginTop:16,fontSize:11,color:'rgba(216,195,173,.3)',fontStyle:'italic',fontFamily:'Noto Serif',lineHeight:1.6}}>Emmanuel Levinasの「顔（The Face）」の概念を<br/>設計の倫理的基盤としています。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Stages ── */
+const STAGES = [
+  { n:'01', icon:'◎', title:'存在を感じる', sub:'あの人がいた、という事実と向き合う', body:'声、温度、習慣——その人がそこにいた感覚を、もう一度感じてみます。記憶の中に、声が、温度が、まだあるはずです。' },
+  { n:'02', icon:'◇', title:'関係性を振り返る', sub:'ふたりの物語を、言葉にする', body:'あなたとその人の間にあったもの——笑い、摩擦、習慣、言えなかった言葉。ふたりの関係性を丁寧に辿ります。' },
+  { n:'03', icon:'◆', title:'失われた未来を語る', sub:'「そのはずだった」時間について', body:'もっとも深い痛みのひとつは、一緒に描いていたはずの未来が消えたこと。その「予定されていた物語」を、安全な場所で話してみましょう。' },
+  { n:'04', icon:'○', title:'物語を紡ぎ直す', sub:'あなた自身の続きを見つける', body:'喪失の後も、あなたの物語は続きます。その人との関係を胸に抱きながら、あなた自身の「これから」を少しずつ形にしていきます。' },
+  { n:'05', icon:'✦', title:'新しいつながりへ', sub:'記憶を、生きる力に変える', body:'愛した人との絆は、旅立ちで終わりません。その存在を自分の一部として生きていく、新しいかたちのつながりを探します。' },
+];
+
+function Stages() {
+  const [active,setActive]=useState(null);
+  const ref=useReveal();
+  return (
+    <section id="ステージ" style={{padding:'130px 48px',background:'#0b1326'}}>
+      <div ref={ref} className="reveal" style={{maxWidth:1100,margin:'0 auto'}}>
+        <div style={{textAlign:'center',marginBottom:64}}>
+          <p style={{fontSize:11,letterSpacing:'.15em',color:'rgba(255,193,116,.45)',marginBottom:12,fontFamily:'Public Sans'}}>5 STAGES</p>
+          <h2 style={{fontFamily:'Noto Serif',fontSize:'clamp(24px,3vw,38px)',color:'#ffc174',lineHeight:1.45,margin:0}}>グリーフには、段階がある</h2>
+          <p style={{marginTop:14,fontSize:14,color:'rgba(216,195,173,.45)',maxWidth:440,margin:'14px auto 0',lineHeight:1.8}}>どのステージからでも始められます。無理に進む必要はありません。</p>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:0}}>
+          {STAGES.map((s,i)=>(
+            <button key={s.n} onClick={()=>setActive(active===i?null:i)} style={{
+              textAlign:'left',background:'transparent',border:'none',cursor:'pointer',
+              borderTop:`1px solid rgba(255,255,255,.05)`,
+              padding:'20px 0',width:'100%',transition:'all .3s'
+            }}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:20}}>
+                <span style={{fontSize:11,color:'rgba(255,193,116,.25)',width:24,flexShrink:0,paddingTop:2,fontFamily:'Public Sans'}}>{s.n}</span>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom: active===i?8:0}}>
+                    <span style={{fontSize:11,color:'rgba(255,193,116,.5)'}}>{s.icon}</span>
+                    <span style={{fontFamily:'Noto Serif',fontSize:17,color:active===i?'#ffc174':'rgba(218,226,253,.7)',transition:'color .3s'}}>{s.title}</span>
+                    <span style={{fontSize:11,color:'rgba(216,195,173,.3)',marginLeft:4}}>{s.sub}</span>
+                  </div>
+                  {active===i&&(
+                    <p style={{margin:0,fontSize:13,color:'rgba(216,195,173,.55)',lineHeight:1.85,paddingLeft:22,animation:'fadeUp .35s ease both'}}>{s.body}</p>
+                  )}
+                </div>
+                <span className="ms" style={{color:'rgba(255,193,116,.2)',fontSize:16,flexShrink:0,transform:active===i?'rotate(90deg)':'rotate(0)',transition:'transform .3s'}}>arrow_forward_ios</span>
+              </div>
+            </button>
+          ))}
+          <div style={{borderTop:'1px solid rgba(255,255,255,.05)'}}/>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Story ── */
+function Story() {
+  const ref=useReveal();
+  return (
+    <section style={{padding:'130px 48px',background:'#070d1c'}}>
+      <div ref={ref} className="reveal" style={{maxWidth:620,margin:'0 auto',textAlign:'center'}}>
+        <span className="ms fill flame" style={{fontSize:36,color:'rgba(255,193,116,.35)',display:'block',marginBottom:32}}>candle</span>
+        <h2 style={{fontFamily:'Noto Serif',fontSize:'clamp(22px,2.5vw,32px)',color:'#ffc174',marginBottom:40,lineHeight:1.5}}>なぜ、このアプリを作ったのか</h2>
+        <div style={{display:'flex',flexDirection:'column',gap:22,textAlign:'left'}}>
+          {[
+            '大切な人を失ったとき、世界は突然色を失います。行き場のない想いや言葉を抱え、ただ立ち尽くす日々。誰かに話すには重すぎる、でも一人では抱えきれない。',
+            'かつて宗教や儀式が果たしていた「喪失の意味づけ」を、現代の私たちは何も持っていません。医学も国家も、その空白を満たしていません。',
+            'ともしび手帳は、その空白に小さな灯りを灯すために生まれました。無理に前を向かなくていい。ただ、あなたのペースで、故人との新しいかたちのつながりを見つけていく。',
+          ].map((t,i)=>(
+            <p key={i} style={{fontFamily:'Noto Serif',fontSize:15,color:'rgba(216,195,173,.6)',lineHeight:2.1,margin:0}}>{t}</p>
+          ))}
+        </div>
+        <div style={{marginTop:48,textAlign:'right'}}>
+          <span style={{fontFamily:'Noto Serif',fontStyle:'italic',color:'rgba(255,193,116,.4)',fontSize:14}}>ともしび手帳.AI 開発チーム</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── CTA ── */
+function CtaSection() {
+  const ref=useReveal();
+  return (
+    <section id="try" style={{padding:'130px 48px',background:'#0b1326',position:'relative',overflow:'hidden'}}>
+      <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at 50% 50%,rgba(245,158,11,.07) 0%,transparent 60%)',pointerEvents:'none'}}/>
+      <div ref={ref} className="reveal" style={{maxWidth:600,margin:'0 auto',textAlign:'center',position:'relative'}}>
+        <div style={{width:60,height:60,borderRadius:'50%',background:'rgba(255,193,116,.06)',border:'1px solid rgba(255,193,116,.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 28px'}}>
+          <span className="ms fill flame" style={{fontSize:28,color:'#ffc174'}}>candle</span>
+        </div>
+        <h2 style={{fontFamily:'Noto Serif',fontSize:'clamp(26px,3.5vw,44px)',lineHeight:1.5,marginBottom:18}}>
+          <span className="grad-text">今夜、一言だけ</span><br/>
+          <span style={{color:'rgba(218,226,253,.8)'}}>書いてみませんか。</span>
+        </h2>
+        <p style={{fontSize:15,color:'rgba(216,195,173,.5)',lineHeight:1.9,marginBottom:40,fontFamily:'Noto Serif',fontWeight:300}}>
+          登録不要。すべてあなたのデバイスに保存されます。<br/>まず、故人のお名前を教えてください。
+        </p>
+        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap'}}>
+          <a href="#" className="btn-primary" style={{padding:'16px 36px',borderRadius:999,fontSize:16,textDecoration:'none',display:'flex',alignItems:'center',gap:8}}>
+            <span className="ms fill" style={{fontSize:20,color:'#2a1700'}}>candle</span>
+            無料で始める
+          </a>
+        </div>
+        <p style={{marginTop:28,fontSize:11,color:'rgba(216,195,173,.25)',lineHeight:1.7}}>
+          ※ 当アプリは医療的診断・治療を目的としたものではありません。<br/>深刻な心理的危機の際は専門家にご相談ください。
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ── Crisis Button ── */
+function CrisisButton() {
+  const [open,setOpen]=useState(false);
+  return (
+    <div style={{position:'fixed',bottom:28,right:28,zIndex:100}}>
+      {open&&(
+        <div style={{position:'absolute',bottom:'calc(100% + 12px)',right:0,background:'#171f33',border:'1px solid rgba(255,193,116,.2)',borderRadius:12,padding:'20px',width:240,boxShadow:'0 20px 60px rgba(0,0,0,.5)',animation:'fadeUp .25s ease both'}}>
+          <p style={{margin:'0 0 4px',fontFamily:'Noto Serif',fontSize:14,color:'#dae2fd'}}>一人で抱えなくていい</p>
+          <p style={{margin:'0 0 14px',fontSize:12,color:'rgba(216,195,173,.45)',lineHeight:1.6}}>今すぐ話せる相談窓口があります</p>
+          <a href="tel:0120279338" style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:'rgba(255,193,116,.05)',borderRadius:8,textDecoration:'none',border:'1px solid rgba(255,193,116,.14)',marginBottom:8}}>
+            <span className="ms" style={{color:'#ffc174',fontSize:18}}>call</span>
+            <div>
+              <p style={{margin:0,fontSize:9,color:'rgba(216,195,173,.45)',letterSpacing:'.08em'}}>よりそいホットライン</p>
+              <p style={{margin:0,fontSize:14,color:'#ffc174',fontFamily:'Public Sans',letterSpacing:'.04em'}}>0120-279-338</p>
+            </div>
+          </a>
+          <button onClick={()=>setOpen(false)} style={{width:'100%',padding:'8px',background:'transparent',border:'none',color:'rgba(216,195,173,.25)',fontSize:11,cursor:'pointer'}}>閉じる</button>
+        </div>
+      )}
+      <button onClick={()=>setOpen(!open)} style={{
+        width:52,height:52,borderRadius:'50%',
+        background:open?'#ffc174':'#f59e0b',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        boxShadow:'0 8px 32px rgba(245,158,11,.35)',
+        border:'none',cursor:'pointer',transition:'all .3s',
+        transform:open?'rotate(45deg)':'rotate(0)',
+      }}>
+        <span className="ms" style={{color:'#2a1700',fontSize:22}}>{open?'close':'sos'}</span>
+      </button>
+    </div>
+  );
+}
+
+/* ── Footer ── */
+function Footer() {
+  return (
+    <footer style={{background:'#060e20',padding:'64px 48px 28px',borderTop:'1px solid rgba(255,193,116,.04)'}}>
+      <div style={{maxWidth:1100,margin:'0 auto'}}>
+        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:48,marginBottom:48}}>
+          <div>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+              <span className="ms fill" style={{color:'#ffc174',fontSize:18}}>candle</span>
+              <span style={{fontFamily:'Noto Serif',fontSize:16,color:'#ffc174'}}>ともしび手帳 .ai</span>
+            </div>
+            <p style={{fontSize:12,color:'rgba(255,193,116,.35)',lineHeight:1.9,maxWidth:300}}>大切な人との記憶を言葉にし、新しいかたちのつながりを育むグリーフケア AIプラットフォーム。</p>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {['Terms of Peace','Privacy Policy','マニュアル'].map(l=>(
+              <a key={l} href="#" style={{fontSize:12,color:'rgba(218,226,253,.25)',textDecoration:'none',fontFamily:'Public Sans',transition:'color .3s'}}
+                onMouseEnter={e=>e.target.style.color='rgba(255,193,116,.6)'} onMouseLeave={e=>e.target.style.color='rgba(218,226,253,.25)'}>{l}</a>
+            ))}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {['お問い合わせ','よりそいホットライン','グリーフリソース'].map(l=>(
+              <a key={l} href="#" style={{fontSize:12,color:'rgba(218,226,253,.25)',textDecoration:'none',fontFamily:'Public Sans',transition:'color .3s'}}
+                onMouseEnter={e=>e.target.style.color='rgba(255,193,116,.6)'} onMouseLeave={e=>e.target.style.color='rgba(218,226,253,.25)'}>{l}</a>
+            ))}
+          </div>
+        </div>
+        <div style={{borderTop:'1px solid rgba(255,255,255,.03)',paddingTop:20,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <p style={{fontSize:11,color:'rgba(218,226,253,.15)',margin:0}}>© 2026 ともしび手帳.AI — The Sanctuary of Light</p>
+          <p style={{fontSize:11,color:'rgba(218,226,253,.1)',margin:0,fontFamily:'Noto Serif',fontStyle:'italic'}}>灯りは消えない</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ── Tweaks ── */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#ffc174",
+  "heroHeadline": "話すたびに、その人の記憶がかたちになっていく。",
+  "ctaLabel": "無料で始める",
+  "showStars": true
+}/*EDITMODE-END*/;
+
+function TweaksPanel({ onClose }) {
+  const [vals,setVals]=useState(TWEAK_DEFAULTS);
+  const set=(k,v)=>{const n={...vals,[k]:v};setVals(n);window.parent.postMessage({type:'__edit_mode_set_keys',edits:n},'*');};
+  return (
+    <div style={{position:'fixed',bottom:90,right:28,width:256,background:'#171f33',border:'1px solid rgba(255,193,116,.15)',borderRadius:12,padding:20,zIndex:200,boxShadow:'0 20px 60px rgba(0,0,0,.5)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <span style={{fontFamily:'Noto Serif',fontSize:14,color:'#ffc174'}}>Tweaks</span>
+        <button onClick={onClose} style={{background:'transparent',border:'none',color:'rgba(216,195,173,.35)',cursor:'pointer',padding:0}}><span className="ms" style={{fontSize:18}}>close</span></button>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <label style={{fontSize:11,color:'rgba(216,195,173,.55)'}}>
+          アクセントカラー
+          <input type="color" value={vals.accentColor} onChange={e=>set('accentColor',e.target.value)}
+            style={{display:'block',marginTop:6,width:'100%',height:30,borderRadius:4,border:'1px solid rgba(255,255,255,.08)',background:'transparent',cursor:'pointer'}}/>
+        </label>
+        <label style={{fontSize:11,color:'rgba(216,195,173,.55)'}}>
+          星背景
+          <div style={{display:'flex',gap:6,marginTop:6}}>
+            {['あり','なし'].map(v=>(
+              <button key={v} onClick={()=>set('showStars',v==='あり')} style={{
+                flex:1,padding:'6px',borderRadius:6,fontSize:11,cursor:'pointer',
+                background:(vals.showStars===(v==='あり'))?'rgba(255,193,116,.09)':'transparent',
+                border:`1px solid ${(vals.showStars===(v==='あり'))?'rgba(255,193,116,.25)':'rgba(255,255,255,.07)'}`,
+                color:(vals.showStars===(v==='あり'))?'#ffc174':'rgba(216,195,173,.35)',
+              }}>{v}</button>
+            ))}
+          </div>
+        </label>
+        <label style={{fontSize:11,color:'rgba(216,195,173,.55)'}}>
+          CTAボタン文言
+          <input type="text" value={vals.ctaLabel} onChange={e=>set('ctaLabel',e.target.value)}
+            style={{display:'block',marginTop:6,width:'100%',padding:'7px 10px',borderRadius:6,border:'1px solid rgba(255,255,255,.07)',background:'rgba(255,255,255,.02)',color:'#dae2fd',fontSize:12,boxSizing:'border-box'}}/>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/* ── App ── */
+function App() {
+  const [tweaksOpen,setTweaksOpen]=useState(false);
+  useEffect(()=>{
+    window.addEventListener('message',e=>{
+      if(e.data?.type==='__activate_edit_mode') setTweaksOpen(true);
+      if(e.data?.type==='__deactivate_edit_mode') setTweaksOpen(false);
+    });
+    window.parent.postMessage({type:'__edit_mode_available'},'*');
+  },[]);
+  return (
+    <div style={{background:'#0b1326',color:'#dae2fd',fontFamily:'Public Sans,sans-serif',overflowX:'hidden'}}>
+      <Nav/>
+      <Hero/>
+      <HowItWorks/>
+      <MemorialPreview/>
+      <Stages/>
+      <Story/>
+      <CtaSection/>
+      <CrisisButton/>
+      {tweaksOpen&&<TweaksPanel onClose={()=>setTweaksOpen(false)}/>}
+      <Footer/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
